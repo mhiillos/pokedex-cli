@@ -100,9 +100,30 @@ func exploreArea(client *pokeapi.Client, args []string) error {
 	return nil
 }
 
+func catchPokemon(client *pokeapi.Client, pokedex map[string]pokeapi.Pokemon, args []string) error {
+	endpoint := "https://pokeapi.co/api/v2/pokemon/"
+	if len(args) != 1 {
+		return errors.New("Please provide one Pokemon to catch")
+	}
+	fmt.Printf("Throwing a Pokeball at %s...\n", args[0])
+	endpoint += args[0]
+	pokemon, err := client.RollPokemon(endpoint)
+	if err != nil {
+		return err
+	}
+	if pokemon == (pokeapi.Pokemon{}) {
+		fmt.Printf("%s escaped!\n", args[0])
+		return nil
+	}
+	fmt.Printf("%s was caught!\n", args[0])
+	pokedex[args[0]] = pokemon
+	return nil
+}
+
 func main() {
 	s := bufio.NewScanner(os.Stdin)
 	cfg := &config{}
+	pokedex := make(map[string]pokeapi.Pokemon)
 	cache, err := pokecache.NewCache(5000 * time.Millisecond)
 	client := &pokeapi.Client{HTTP: &http.Client{}, Cache: cache}
 	if err != nil {
@@ -135,6 +156,11 @@ func main() {
 		name: "explore",
 		description: "Displays pokemon in the location area",
 		callback: func (cfg *config, args []string) error { return exploreArea(client, args) },
+	}
+	commands["catch"] = cliCommand {
+		name: "catch",
+		description: "Attempt to catch the specified Pokemon",
+		callback: func (cfg *config, args []string) error { return catchPokemon(client, pokedex, args) },
 	}
 
 	for {

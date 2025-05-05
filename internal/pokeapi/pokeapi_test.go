@@ -9,11 +9,16 @@ import (
 	"github.com/mhiillos/pokedex-cli/internal/pokecache"
 )
 
-func TestGetLocationAreas(t *testing.T) {
+func CreateMockServer(body []byte) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-    w.Write([]byte(`{"results":[{"name":"test-area","url":"test-url"}],"next":"next-url","previous":"previous-url"}`))
+    w.Write(body)
 	}))
+	return server
+}
+
+func TestGetLocationAreas(t *testing.T) {
+	server := CreateMockServer([]byte(`{"results":[{"name":"test-area","url":"test-url"}],"next":"next-url","previous":"previous-url"}`))
 	defer server.Close()
 
 	cache, err := pokecache.NewCache(5000 * time.Millisecond)
@@ -49,26 +54,23 @@ func TestGetLocationAreas(t *testing.T) {
 }
 
 func TestExploreLocationArea(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
-			"name": "test_area",
-			"pokemon_encounters": [
-				{
-					"pokemon": {
-						"name": "pokemon_1",
-						"url": "pokemon_1_url"
-					}
-				},
-				{
-					"pokemon": {
-						"name": "pokemon_2",
-						"url": "pokemon_2_url"
-					}
+	server := CreateMockServer([]byte(`{
+		"name": "test_area",
+		"pokemon_encounters": [
+			{
+				"pokemon": {
+					"name": "pokemon_1",
+					"url": "pokemon_1_url"
 				}
-			]
-		}`))
-	}))
+			},
+			{
+				"pokemon": {
+					"name": "pokemon_2",
+					"url": "pokemon_2_url"
+				}
+			}
+		]
+	}`))
 	defer server.Close()
 
 	cache, err := pokecache.NewCache(5000 * time.Millisecond)

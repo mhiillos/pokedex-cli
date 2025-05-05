@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"errors"
 	"encoding/json"
+	"math/rand"
 	"net/http"
 	"io"
 
@@ -35,13 +36,18 @@ type LocationAreasResponse struct {
 	Previous string 				`json:"previous"`
 }
 
-type Pokemon struct {
+type BasicPokemon struct {
 	Name string `json:"name"`
 	URL string  `json:"url"`
 }
 
 type PokemonEncounter struct {
-	Pokemon Pokemon `json:"pokemon"`
+	Pokemon BasicPokemon `json:"pokemon"`
+}
+
+type Pokemon struct {
+	Name string        `json:"name"`
+	BaseExperience int `json:"base_experience"`
 }
 
 type LocationAreaResponse struct {
@@ -99,15 +105,15 @@ func (client *Client) GetLocationAreas(endpoint string) (LocationAreasResponse, 
 // This function gets the list of pokemon in an area
 func (client *Client) ExploreLocationArea(endpoint string) (LocationAreaResponse, error) {
 	body, err := client.Get(endpoint)
-		if err != nil {
-			var httpErr *HTTPError
-			if errors.As(err, &httpErr) {
-				if httpErr.StatusCode == 404 {
-					return LocationAreaResponse{}, fmt.Errorf("Location area not found")
-				}
+	if err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) {
+			if httpErr.StatusCode == 404 {
+				return LocationAreaResponse{}, fmt.Errorf("Location area not found")
 			}
-			return LocationAreaResponse{}, err
 		}
+		return LocationAreaResponse{}, err
+	}
 
 	response := LocationAreaResponse{}
 	err = json.Unmarshal(body, &response)
@@ -115,4 +121,29 @@ func (client *Client) ExploreLocationArea(endpoint string) (LocationAreaResponse
 		return LocationAreaResponse{}, err
 	}
 	return response, nil
+}
+
+func (client *Client) RollPokemon(endpoint string) (Pokemon, error) {
+	body, err := client.Get(endpoint)
+	if err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) {
+			if httpErr.StatusCode == 404 {
+				return Pokemon{}, fmt.Errorf("Pokemon not found")
+			}
+		}
+	}
+
+	pokemon := Pokemon{}
+	err = json.Unmarshal(body, &pokemon)
+	if err != nil {
+		return Pokemon{}, err
+	}
+	// Roll for catch
+	baseXP := pokemon.BaseExperience
+	roll := rand.Intn(baseXP)
+	if roll > (baseXP * baseXP + 2)/(2 * baseXP) {
+		return pokemon, nil
+	}
+	return Pokemon{}, nil
 }
