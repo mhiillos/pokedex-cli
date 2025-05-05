@@ -21,10 +21,10 @@ type config struct {
 type cliCommand struct {
 	name				string
 	description string
-	callback		func(c *config) error
+	callback		func(c *config, args []string) error
 }
 
-func commandExit(c *config) error {
+func commandExit(c *config, args []string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
@@ -50,7 +50,7 @@ func nextAreas(c *config, client *pokeapi.Client) error {
 	if c.next != "" {
 		endpoint = c.next
 	}
-	response, err := client.Get(endpoint)
+	response, err := client.GetLocationAreas(endpoint)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func prevAreas(c *config, client *pokeapi.Client) error {
 		return errors.New("You're on the first page")
 	}
 	endpoint := c.previous
-	response, err := client.Get(endpoint)
+	response, err := client.GetLocationAreas(endpoint)
 	if err != nil {
 		return err
 	}
@@ -79,6 +79,24 @@ func prevAreas(c *config, client *pokeapi.Client) error {
 	c.next = response.Next
 	c.previous = response.Previous
 
+	return nil
+}
+
+func exploreArea(client *pokeapi.Client, args []string) error {
+	endpoint := "https://pokeapi.co/api/v2/location-area/"
+	if len(args) != 1 {
+		return errors.New("Please provide one location to explore")
+	}
+	fmt.Printf("Exploring %s\n", args[0])
+	endpoint += args[0]
+	response, err := client.ExploreLocationArea(endpoint)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Found Pokemon:")
+	for _, pokemonEncounter := range response.PokemonEncounters {
+		fmt.Printf("  - %s\n", pokemonEncounter.Pokemon.Name)
+	}
 	return nil
 }
 
@@ -101,17 +119,22 @@ func main() {
 	commands["help"] = cliCommand {
 		name: 			 "help",
 		description: "Displays a help message",
-		callback:		 func(cfg *config) error { return printHelp(commands) },
+		callback:		 func(cfg *config, args []string) error { return printHelp(commands) },
 	}
 	commands["map"] = cliCommand {
 		name: 			 "map",
 		description: "Displays the next 20 map areas",
-		callback:    func (cfg *config) error { return nextAreas(cfg, client) },
+		callback:    func (cfg *config, args[]string) error { return nextAreas(cfg, client) },
 	}
 	commands["mapb"] = cliCommand {
 		name: 			 "mapb",
 		description: "Displays the previous 20 map areas",
-		callback:    func (cfg *config) error { return prevAreas(cfg, client) },
+		callback:    func (cfg *config, args []string) error { return prevAreas(cfg, client) },
+	}
+	commands["explore"] = cliCommand {
+		name: "explore",
+		description: "Displays pokemon in the location area",
+		callback: func (cfg *config, args []string) error { return exploreArea(client, args) },
 	}
 
 	for {
@@ -125,7 +148,7 @@ func main() {
 		cmd := cleanedInput[0]
 
 		if cmdStruct, ok := commands[cmd]; ok {
-			err := cmdStruct.callback(cfg)
+			err := cmdStruct.callback(cfg, cleanedInput[1:])
 			if err != nil {
 					fmt.Println(err)
 			}

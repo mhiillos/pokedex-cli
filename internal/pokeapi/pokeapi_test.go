@@ -9,7 +9,7 @@ import (
 	"github.com/mhiillos/pokedex-cli/internal/pokecache"
 )
 
-func TestAPIGet(t *testing.T) {
+func TestGetLocationAreas(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
     w.Write([]byte(`{"results":[{"name":"test-area","url":"test-url"}],"next":"next-url","previous":"previous-url"}`))
@@ -26,7 +26,7 @@ func TestAPIGet(t *testing.T) {
 		Cache: cache,
 	}
 
-	resp, err := client.Get(server.URL)
+	resp, err := client.GetLocationAreas(server.URL)
 	if err != nil {
 		t.Fatalf("GET failed: %v", err)
 	}
@@ -41,10 +41,58 @@ func TestAPIGet(t *testing.T) {
 		t.Errorf("expected URL 'test-url', got %q", resp.Results[0].URL)
 	}
 	if resp.Previous != "previous-url" {
-		t.Errorf("Expected previous url 'previous-url', got %q", resp.Previous)
+		t.Errorf("expected previous url 'previous-url', got %q", resp.Previous)
 	}
 	if resp.Next != "next-url" {
-		t.Errorf("Expected previous url 'next-url', got %q", resp.Next)
+		t.Errorf("expected previous url 'next-url', got %q", resp.Next)
+	}
+}
+
+func TestExploreLocationArea(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"name": "test_area",
+			"pokemon_encounters": [
+				{
+					"pokemon": {
+						"name": "pokemon_1",
+						"url": "pokemon_1_url"
+					}
+				},
+				{
+					"pokemon": {
+						"name": "pokemon_2",
+						"url": "pokemon_2_url"
+					}
+				}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	cache, err := pokecache.NewCache(5000 * time.Millisecond)
+	if err != nil {
+    t.Fatalf("failed to create cache: %v", err)
 	}
 
+	client := Client{
+		HTTP: server.Client(),
+		Cache: cache,
+	}
+
+	resp, err := client.ExploreLocationArea(server.URL)
+	if err != nil {
+		t.Fatalf("GET failed: %v", err)
+	}
+
+	if resp.Name != "test_area" {
+		t.Errorf("expected name `test_area`, got %q", resp.Name)
+	}
+	if len(resp.PokemonEncounters) != 2 {
+		t.Fatal("amount of pokemon do not match")
+	}
+	if resp.PokemonEncounters[0].Pokemon.Name != "pokemon_1" {
+		t.Errorf("expected name `pokemon_1`, got %q", resp.PokemonEncounters[0].Pokemon.Name)
+	}
 }
