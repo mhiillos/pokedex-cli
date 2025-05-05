@@ -8,6 +8,11 @@ import (
   "github.com/mhiillos/pokedex-cli/internal/pokecache"
 )
 
+type Client struct {
+    HTTP *http.Client
+    Cache *pokecache.Cache
+}
+
 type LocationArea struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`
@@ -19,9 +24,9 @@ type Response struct {
 	Previous string `json:"previous"`
 }
 
-func Get(c *pokecache.Cache, endpoint string) (Response, error) {
+func (client *Client) Get(endpoint string) (Response, error) {
 	// Try to load from cache
-	cached, ok := c.Get(endpoint)
+	cached, ok := client.Cache.Get(endpoint)
 	if ok {
 		response, err := decodeResponse(cached)
 		if err != nil {
@@ -31,27 +36,30 @@ func Get(c *pokecache.Cache, endpoint string) (Response, error) {
 	}
 
 	// Otherwise, make a new request
-	res, err := http.Get(endpoint)
-		if err != nil {
-			return Response{}, fmt.Errorf("Error fetching endpoint: %w", err)
-		}
-		defer res.Body.Close()
-		body, err := io.ReadAll(res.Body)
-		if res.StatusCode > 299 {
-			return Response{}, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
-		}
-		if err != nil {
-			return Response{}, fmt.Errorf("%w", err)
-		}
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return Response{}, fmt.Errorf("Error creating new request: %w", err)
+	}
+	res, err := client.HTTP.Do(req)
+	if err != nil {
+		return Response{}, fmt.Errorf("Error fetching endpoint: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if res.StatusCode > 299 {
+		return Response{}, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+	}
+	if err != nil {
+		return Response{}, fmt.Errorf("%w", err)
+	}
+	response, err := decodeResponse(body)
+	if err != nil {
+		return Response{}, fmt.Errorf("Error unmarshaling body: %w", err)
+	}
 
-		response, err := decodeResponse(body)
-		if err != nil {
-			return Response{}, fmt.Errorf("Error unmarshaling body: %w", err)
-		}
-
-		// Cache the data
-		c.Add(endpoint, body)
-		return response, nil
+	// Cache the data
+	client.Cache.Add(endpoint, body)
+	return response, nil
 }
 
 func decodeResponse(data []byte) (Response, error) {

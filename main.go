@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -44,12 +45,12 @@ func cleanInput(text string) []string {
 }
 
 // Prints the next 20 areas
-func nextAreas(c *config, cache *pokecache.Cache) error {
+func nextAreas(c *config, client *pokeapi.Client) error {
 	endpoint := "https://pokeapi.co/api/v2/location-area/"
 	if c.next != "" {
 		endpoint = c.next
 	}
-	response, err := pokeapi.Get(cache, endpoint)
+	response, err := client.Get(endpoint)
 	if err != nil {
 		return err
 	}
@@ -63,12 +64,12 @@ func nextAreas(c *config, cache *pokecache.Cache) error {
 }
 
 // Prints the previous 20 areas
-func prevAreas(c *config, cache *pokecache.Cache) error {
+func prevAreas(c *config, client *pokeapi.Client) error {
 	if c.previous == "" {
 		return errors.New("You're on the first page")
 	}
 	endpoint := c.previous
-	response, err := pokeapi.Get(cache, endpoint)
+	response, err := client.Get(endpoint)
 	if err != nil {
 		return err
 	}
@@ -85,6 +86,7 @@ func main() {
 	s := bufio.NewScanner(os.Stdin)
 	cfg := &config{}
 	cache, err := pokecache.NewCache(5000 * time.Millisecond)
+	client := &pokeapi.Client{HTTP: &http.Client{}, Cache: cache}
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -104,12 +106,12 @@ func main() {
 	commands["map"] = cliCommand {
 		name: 			 "map",
 		description: "Displays the next 20 map areas",
-		callback:    func (cfg *config) error { return nextAreas(cfg, cache) },
+		callback:    func (cfg *config) error { return nextAreas(cfg, client) },
 	}
 	commands["mapb"] = cliCommand {
 		name: 			 "mapb",
 		description: "Displays the previous 20 map areas",
-		callback:    func (cfg *config) error { return prevAreas(cfg, cache) },
+		callback:    func (cfg *config) error { return prevAreas(cfg, client) },
 	}
 
 	for {
