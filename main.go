@@ -111,12 +111,44 @@ func catchPokemon(client *pokeapi.Client, pokedex map[string]pokeapi.Pokemon, ar
 	if err != nil {
 		return err
 	}
-	if pokemon == (pokeapi.Pokemon{}) {
+	if pokemon.Name == ("") {
 		fmt.Printf("%s escaped!\n", args[0])
 		return nil
 	}
 	fmt.Printf("%s was caught!\n", args[0])
 	pokedex[args[0]] = pokemon
+	fmt.Println("You may now inspect it with the inspect command.")
+	return nil
+}
+
+func inspectPokemon(pokedex map[string]pokeapi.Pokemon, args []string) error {
+	if len(args) != 1 {
+		return errors.New("Please provide one Pokemon to inspect")
+	}
+	pokemon, ok := pokedex[args[0]]
+	if !ok {
+		return fmt.Errorf("Pokemon %q not in Pokedex", args[0])
+	}
+	fmt.Printf("Name: %s\n", pokemon.Name)
+	fmt.Printf("Height: %d\n", pokemon.Height)
+	fmt.Printf("Weight: %d\n", pokemon.Weight)
+	fmt.Println("Stats:")
+	for _, stat := range pokemon.Stats {
+		fmt.Printf("-%s: %d\n", stat.Stat.Name, stat.BaseStat)
+	}
+	fmt.Println("Types:")
+	for _, pokemonType := range pokemon.Types {
+		fmt.Printf("- %s\n", pokemonType.Type.Name)
+
+	}
+	return nil
+}
+
+func listPokemon(pokedex map[string]pokeapi.Pokemon) error {
+	fmt.Println("Your Pokedex:")
+	for name := range(pokedex) {
+		fmt.Printf("- %s\n", name)
+	}
 	return nil
 }
 
@@ -139,7 +171,7 @@ func main() {
 	}
 	commands["help"] = cliCommand {
 		name: 			 "help",
-		description: "Displays a help message",
+		description: "Lists the available commands",
 		callback:		 func(cfg *config, args []string) error { return printHelp(commands) },
 	}
 	commands["map"] = cliCommand {
@@ -153,14 +185,24 @@ func main() {
 		callback:    func (cfg *config, args []string) error { return prevAreas(cfg, client) },
 	}
 	commands["explore"] = cliCommand {
-		name: "explore",
+		name: "explore <location_area>",
 		description: "Displays pokemon in the location area",
 		callback: func (cfg *config, args []string) error { return exploreArea(client, args) },
 	}
 	commands["catch"] = cliCommand {
-		name: "catch",
+		name: "catch <pokemon_name>",
 		description: "Attempt to catch the specified Pokemon",
 		callback: func (cfg *config, args []string) error { return catchPokemon(client, pokedex, args) },
+	}
+	commands["inspect"] = cliCommand {
+		name: "inspect <pokemon_name>",
+		description: "View a caught Pokemon's stats",
+		callback: func (cfg *config, args []string) error { return inspectPokemon(pokedex, args) },
+	}
+	commands["pokedex"] = cliCommand {
+		name: "pokedex",
+		description: "View all Pokemon in your Pokedex",
+		callback: func (cfg *config, args []string) error { return listPokemon(pokedex) },
 	}
 
 	for {
